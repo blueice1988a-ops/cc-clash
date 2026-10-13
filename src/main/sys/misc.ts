@@ -87,7 +87,7 @@ export async function setupFirewall(): Promise<void> {
     const rules = [
       { name: 'mihomo', program: mihomoCorePath('mihomo') },
       { name: 'mihomo-alpha', program: mihomoCorePath('mihomo-alpha') },
-      { name: 'Mihomo Party', program: exePath() }
+      { name: 'Cc clash', program: exePath() }
     ]
     for (const rule of rules) {
       await execPromise(`netsh advfirewall firewall delete rule name="${rule.name}"`, {

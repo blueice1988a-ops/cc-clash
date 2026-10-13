@@ -16,12 +16,7 @@ import { checkAdminPrivileges } from '../core/manager'
 import { parse } from '../utils/yaml'
 import * as chromeRequest from '../utils/chromeRequest'
 
-const GITHUB_PROXIES = [
-  'https://gh-proxy.org',
-  'https://ghfast.top',
-  'https://down.clashparty.org',
-  'https://download.mihomo.party'
-]
+const GITHUB_PROXIES = ['https://gh-proxy.org', 'https://ghfast.top']
 
 let updateInstallPromise: Promise<void> | undefined
 
@@ -77,7 +72,7 @@ async function getGitHubAssetSha256(
 ): Promise<string> {
   const releaseTag = encodeURIComponent(`v${version}`)
   const res = await chromeRequest.get<GitHubRelease>(
-    `https://api.github.com/repos/mihomo-party-org/mihomo-party/releases/tags/${releaseTag}`,
+    `https://api.github.com/repos/blueice1988a-ops/cc-clash/releases/tags/${releaseTag}`,
     {
       headers: {
         Accept: 'application/vnd.github+json',
@@ -99,8 +94,7 @@ async function getGitHubAssetSha256(
 export async function checkUpdate(): Promise<IAppVersion | undefined> {
   const [{ 'mixed-port': mixedPort = DEFAULT_MIHOMO_PORTS.mixed }, { githubProxy = '' }] =
     await Promise.all([getControledMihomoConfig(), getAppConfig()])
-  const githubUrl =
-    'https://github.com/mihomo-party-org/mihomo-party/releases/latest/download/latest.yml'
+  const githubUrl = 'https://github.com/blueice1988a-ops/cc-clash/releases/latest/download/latest.yml'
   const res = await tryDownload(buildDownloadUrls(githubUrl, githubProxy), {
     headers: { 'Content-Type': 'application/octet-stream' },
     proxy: updaterProxy(mixedPort),
@@ -150,13 +144,13 @@ export function downloadAndInstallUpdate(version: string): Promise<void> {
 async function installUpdate(version: string): Promise<void> {
   const [{ 'mixed-port': mixedPort = DEFAULT_MIHOMO_PORTS.mixed }, { githubProxy = '' }] =
     await Promise.all([getControledMihomoConfig(), getAppConfig()])
-  const githubBase = `https://github.com/mihomo-party-org/mihomo-party/releases/download/v${version}/`
+  const githubBase = `https://github.com/blueice1988a-ops/cc-clash/releases/download/v${version}/`
   const fileMap = {
-    'win32-x64': `clash-party-windows-${version}-x64-setup.exe`,
-    'win32-ia32': `clash-party-windows-${version}-ia32-setup.exe`,
-    'win32-arm64': `clash-party-windows-${version}-arm64-setup.exe`,
-    'darwin-x64': `clash-party-macos-${version}-x64.pkg`,
-    'darwin-arm64': `clash-party-macos-${version}-arm64.pkg`
+    'win32-x64': `cc-clash-windows-${version}-x64-setup.exe`,
+    'win32-ia32': `cc-clash-windows-${version}-ia32-setup.exe`,
+    'win32-arm64': `cc-clash-windows-${version}-arm64-setup.exe`,
+    'darwin-x64': `cc-clash-macos-${version}-x64.pkg`,
+    'darwin-arm64': `cc-clash-macos-${version}-arm64.pkg`
   }
   let file = fileMap[`${process.platform}-${process.arch}`]
   if (isPortable()) {

@@ -1,3 +1,11 @@
+# Cc clash
+
+Cc clash 基于开源项目 [Clash Party](https://github.com/mihomo-party-org/clash-party) 修改而来，遵循 GPL-3.0 许可证发布，原项目的版权归原作者所有。下载安装包请到本仓库的 [Releases](https://github.com/blueice1988a-ops/cc-clash/releases) 页面。
+
+以下为原项目说明：
+
+---
+
 <h3 align="center">
   <img height='48px' src='./images/icon-white.png#gh-dark-mode-only'>
   <img height='48px' src='./images/icon-black.png#gh-light-mode-only'>
