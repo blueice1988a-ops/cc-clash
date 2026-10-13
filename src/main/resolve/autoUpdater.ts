@@ -94,7 +94,8 @@ async function getGitHubAssetSha256(
 export async function checkUpdate(): Promise<IAppVersion | undefined> {
   const [{ 'mixed-port': mixedPort = DEFAULT_MIHOMO_PORTS.mixed }, { githubProxy = '' }] =
     await Promise.all([getControledMihomoConfig(), getAppConfig()])
-  const githubUrl = 'https://github.com/blueice1988a-ops/cc-clash/releases/latest/download/latest.yml'
+  const githubUrl =
+    'https://github.com/blueice1988a-ops/cc-clash/releases/latest/download/latest.yml'
   const res = await tryDownload(buildDownloadUrls(githubUrl, githubProxy), {
     headers: { 'Content-Type': 'application/octet-stream' },
     proxy: updaterProxy(mixedPort),
