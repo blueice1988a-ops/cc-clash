@@ -17,6 +17,17 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq python3 curl nano ca-certificates >/dev/null
 
+echo "==> 检查 80 和 443 端口"
+# 重新安装时，占用端口的是我们自己的 mihomo 和 python3，这种情况不算冲突
+for port in 80 443; do
+  users="$(ss -ltnpH "sport = :$port" 2>/dev/null | grep -o '"[^"]*"' | tr -d '"' | sort -u | grep -vx -e mihomo -e python3 || true)"
+  if [ -n "$users" ]; then
+    echo "❌ 端口 $port 已经被其他程序占用：$users"
+    echo "   中转服务器需要用到 80 和 443 端口，请先停掉这个程序，或者换一台干净的服务器再安装。"
+    exit 1
+  fi
+done
+
 echo "==> 下载 mihomo $MIHOMO_VERSION"
 case "$(uname -m)" in
   x86_64) arch="amd64-compatible" ;;

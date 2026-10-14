@@ -59,24 +59,27 @@ DEFAULT_RULES = """\
 #
 # 每行一条：类型,内容,去哪里
 #   类型常用的有：
-#     DOMAIN-SUFFIX  某个网站及它的子域名，例如 DOMAIN-SUFFIX,openai.com,美国
+#     DOMAIN-SUFFIX  某个网站及它的子域名，例如 DOMAIN-SUFFIX,openai.com,固定IP
 #     DOMAIN-KEYWORD 网址里包含某个词，例如 DOMAIN-KEYWORD,google,自动
 #     IP-CIDR        某一段 IP，例如 IP-CIDR,1.2.3.0/24,日本
 #     GEOIP          某个国家的 IP，例如 GEOIP,JP,日本
 #   去哪里可以写：自动 日本 美国 香港 新加坡 台湾 韩国 固定IP 直连 拒绝
 #     自动    从这位朋友的机场节点里自动挑最快的
 #     日本等  只用名字里带这个地区的节点，找不到时自动改用“自动”
-#     固定IP  走朋友的固定 IP（先经过他的机场节点）；没设置固定 IP 时改用“自动”
+#     固定IP  走朋友的固定 IP（先经过他的机场节点）；没设置固定 IP 时改用“美国”
 #     直连    从服务器直接出去，不经过机场节点
 #     拒绝    不让访问
 #
 # 从上往下匹配，第一条符合的生效；都不符合的走“自动”。
 # 改完保存后，运行 ccrelay reload 生效（用 ccrelay rules 编辑会自动生效）。
 
-DOMAIN-SUFFIX,openai.com,美国
-DOMAIN-SUFFIX,chatgpt.com,美国
-DOMAIN-SUFFIX,claude.ai,美国
-DOMAIN-SUFFIX,anthropic.com,美国
+DOMAIN-SUFFIX,openai.com,固定IP
+DOMAIN-SUFFIX,chatgpt.com,固定IP
+DOMAIN-SUFFIX,claude.ai,固定IP
+DOMAIN-SUFFIX,anthropic.com,固定IP
+DOMAIN-SUFFIX,oaistatic.com,固定IP
+DOMAIN-SUFFIX,oaiusercontent.com,固定IP
+DOMAIN-SUFFIX,claude.com,固定IP
 """
 
 
@@ -135,7 +138,8 @@ def user_target(name, target, user):
     if target in SPECIAL_TARGETS:
         return SPECIAL_TARGETS[target]
     if target == '固定IP':
-        return f'{name}-固定IP' if user.get('static') else f'{name}-自动'
+        # 固定 IP 多用于 ChatGPT、Claude 这类按地区限制的网站，没设置时退回美国节点
+        return f'{name}-固定IP' if user.get('static') else f'{name}-美国'
     return f'{name}-{target}'
 
 
