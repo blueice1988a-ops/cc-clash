@@ -13,6 +13,7 @@ import {
   patchControledMihomoConfig
 } from '../config'
 import { DEFAULT_MIHOMO_PORTS } from '../../shared/appConfig'
+import { CC_SIMPLE_UI } from '../../shared/cc'
 import icoIcon from '../../../resources/icon.ico?asset'
 import icoIconBlue from '../../../resources/icon_blue.ico?asset'
 import icoIconRed from '../../../resources/icon_red.ico?asset'
@@ -55,6 +56,13 @@ const customTrayIconSize = 16
 const customTrayIconScaleFactors = [1, 1.25, 1.5, 2, 2.5, 3]
 
 export const buildContextMenu = async (): Promise<Menu> => {
+  if (CC_SIMPLE_UI) {
+    return Menu.buildFromTemplate([
+      { label: t('tray.showWindow'), click: (): void => showMainWindow() },
+      { type: 'separator' },
+      { label: t('actions.quit.button'), click: (): void => app.quit() }
+    ])
+  }
   // 添加调试日志
   await trayLogger.debug('Current translation for tray.showWindow', t('tray.showWindow'))
   await trayLogger.debug(

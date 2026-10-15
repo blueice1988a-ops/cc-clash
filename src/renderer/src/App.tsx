@@ -23,6 +23,8 @@ import { hasPendingPluginFile, subscribePluginFile } from '@renderer/utils/plugi
 import 'driver.js/dist/driver.css'
 import { useTranslation } from 'react-i18next'
 import { DEFAULT_ENABLE_TRAFFIC_LOGGER } from '../../shared/appConfig'
+import { CC_SIMPLE_UI } from '../../shared/cc'
+import CcHome from './pages/cc-home'
 import MihomoIcon from './components/base/mihomo-icon'
 import { getSiderCardByPath } from './utils/sider'
 import { markInitialContentPartReady } from './utils/startup'
@@ -207,7 +209,7 @@ const App: React.FC = () => {
   }, [patchAppConfig])
 
   useEffect(() => {
-    if (!ready || !hasAppConfig || !appConfig?.modeSelected) return
+    if (CC_SIMPLE_UI || !ready || !hasAppConfig || !appConfig?.modeSelected) return
     createTourDriver(t, navigate)
     startTourIfNeeded()
   }, [t, ready, navigate, hasAppConfig, appConfig?.modeSelected])
@@ -228,6 +230,8 @@ const App: React.FC = () => {
     window.addEventListener('mouseup', onResizeEnd)
     return (): void => window.removeEventListener('mouseup', onResizeEnd)
   }, [onResizeEnd])
+
+  if (CC_SIMPLE_UI) return <CcHome />
 
   if (hasAppConfig && !appConfig?.modeSelected) {
     return (

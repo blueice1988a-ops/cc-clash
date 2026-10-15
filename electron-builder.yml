@@ -35,6 +35,8 @@ win:
   target:
     - nsis
     - 7z
+  # 虚拟网卡需要管理员权限，每次启动都以管理员身份运行
+  requestedExecutionLevel: requireAdministrator
   artifactName: cc-clash-windows-${version}-${arch}-portable.${ext}
 nsis:
   artifactName: cc-clash-windows-${version}-${arch}-setup.${ext}
