@@ -275,6 +275,31 @@ proxy-groups:
   - name: 代理
     type: select
     proxies: [Cc 线路]
+# 虚拟网卡模式下靠 fake-ip 和嗅探把域名带到服务器，服务器才能按域名分流（比如 ChatGPT 走固定 IP）
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '*.lan'
+    - '+.local'
+    - '+.msftconnecttest.com'
+    - '+.msftncsi.com'
+    - 'time.*.com'
+    - 'ntp.*.com'
+  default-nameserver: [223.5.5.5, 119.29.29.29]
+  nameserver: ['https://223.5.5.5/dns-query', 'https://doh.pub/dns-query']
+sniffer:
+  enable: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
 rules:
   - GEOSITE,private,DIRECT
   - GEOIP,private,DIRECT,no-resolve

@@ -12,12 +12,17 @@ import {
   checkAutoRun,
   checkMihomoCorePermissions,
   enableAutoRun,
+  getControledMihomoConfig,
   getFilePath,
   getProfileConfig,
   grantTunPermissions,
+  mihomoVersion,
+  patchAppConfig,
+  patchControledMihomoConfig,
   readTextFile,
   removeProfileItem,
   restartAsAdmin,
+  restartCore,
   setOperationMode,
   showTunPermissionDialog,
   triggerSysProxy,
@@ -26,15 +31,84 @@ import {
 import { markInitialContentPartReady } from '@renderer/utils/startup'
 import ccIcon from '@renderer/assets/cc-icon.png'
 
-function refreshTray(): void {
-  window.electron.ipcRenderer.send('updateFloatingWindow')
-  window.electron.ipcRenderer.send('updateTrayMenu')
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+// 确认代理核心还在运行，避免配置没生效却显示已连接
+async function ensureCoreRunning(): Promise<void> {
+  try {
+    await mihomoVersion()
+  } catch (e) {
+    throw new Error(`代理核心没有正常运行：${errorText(e)}`)
+  }
+}
+
+// 打开虚拟网卡，返回是否真的打开了
+async function enableTun(): Promise<boolean> {
+  if (!(await checkMihomoCorePermissions())) {
+    if (platform === 'win32') {
+      // 重启成管理员后，主进程会自动打开虚拟网卡
+      if (await showTunPermissionDialog()) await restartAsAdmin()
+      return false
+    }
+    try {
+      await grantTunPermissions()
+    } catch {
+      return false
+    }
+    if (!(await checkMihomoCorePermissions())) return false
+  }
+  await patchControledMihomoConfig({ tun: { enable: true }, dns: { enable: true } })
+  return (await getControledMihomoConfig(true)).tun?.enable === true
+}
+
+// 打开系统代理和虚拟网卡，返回虚拟网卡是否打开
+async function connect(): Promise<boolean> {
+  if ((await getControledMihomoConfig(true)).mode !== 'rule') {
+    await patchControledMihomoConfig({ mode: 'rule' })
+  }
+  await patchAppConfig({ sysProxy: { enable: true } })
+  try {
+    await triggerSysProxy(true)
+  } catch (e) {
+    await patchAppConfig({ sysProxy: { enable: false } })
+    throw new Error(`系统代理没有打开：${errorText(e)}`)
+  }
+  const tun = await enableTun()
+  await ensureCoreRunning()
+  updateTrayIconImmediate(true, tun)
+  return tun
+}
+
+async function disconnect(): Promise<void> {
+  await patchAppConfig({ sysProxy: { enable: false } })
+  await triggerSysProxy(false)
+  if ((await getControledMihomoConfig(true)).tun?.enable) {
+    await patchControledMihomoConfig({ tun: { enable: false } })
+  }
+  updateTrayIconImmediate(false, false)
+}
+
+// 新线路用不了时，删掉这次新加的线路，换回原来的线路
+async function restoreProfiles(previous: IProfileConfig): Promise<void> {
+  const before = new Set(previous.items.map((i) => i.id))
+  const now = await getProfileConfig(true)
+  for (const item of now.items) {
+    if (!before.has(item.id)) await removeProfileItem(item.id).catch(() => {})
+  }
+  const after = await getProfileConfig(true)
+  if (previous.current && after.current !== previous.current) {
+    await changeCurrentProfile(previous.current).catch(() => {})
+  } else {
+    await restartCore().catch(() => {})
+  }
 }
 
 // Cc clash 的唯一界面：导入一条链接，然后自动打开系统代理和虚拟网卡
 const CcHome: React.FC = () => {
-  const { appConfig, patchAppConfig } = useAppConfig()
-  const { controledMihomoConfig, patchControledMihomoConfig } = useControledMihomoConfig()
+  const { appConfig, mutateAppConfig } = useAppConfig()
+  const { controledMihomoConfig, mutateControledMihomoConfig } = useControledMihomoConfig()
   const { profileConfig, mutateProfileConfig } = useProfileConfig()
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,56 +128,8 @@ const CcHome: React.FC = () => {
   useEffect(() => {
     if (!appConfig) return
     if (appConfig.operationMode === 'standard' && appConfig.modeSelected) return
-    setOperationMode('standard').catch((e) => toast.error(String(e)))
+    setOperationMode('standard').catch((e) => toast.error(errorText(e)))
   }, [appConfig])
-
-  const enableTun = async (): Promise<boolean> => {
-    if (!(await checkMihomoCorePermissions())) {
-      if (platform === 'win32') {
-        // 重启成管理员后，主进程会自动打开虚拟网卡
-        if (await showTunPermissionDialog()) await restartAsAdmin()
-        return false
-      }
-      try {
-        await grantTunPermissions()
-      } catch {
-        return false
-      }
-      if (!(await checkMihomoCorePermissions())) return false
-    }
-    await patchControledMihomoConfig({ tun: { enable: true }, dns: { enable: true } })
-    return true
-  }
-
-  const connect = async (): Promise<void> => {
-    if (controledMihomoConfig?.mode !== 'rule') await patchControledMihomoConfig({ mode: 'rule' })
-    await patchAppConfig({ sysProxy: { enable: true } })
-    await triggerSysProxy(true)
-    const tun = await enableTun()
-    updateTrayIconImmediate(true, tun)
-    refreshTray()
-  }
-
-  const disconnect = async (): Promise<void> => {
-    await patchAppConfig({ sysProxy: { enable: false } })
-    await triggerSysProxy(false)
-    if (tunOn) await patchControledMihomoConfig({ tun: { enable: false } })
-    updateTrayIconImmediate(false, false)
-    refreshTray()
-  }
-
-  const turnOnTun = async (): Promise<void> => {
-    const tun = await enableTun()
-    if (!tun && platform !== 'win32') throw new Error('没有拿到权限，虚拟网卡没有打开')
-    updateTrayIconImmediate(sysProxyOn, tun)
-    refreshTray()
-  }
-
-  const turnOffTun = async (): Promise<void> => {
-    await patchControledMihomoConfig({ tun: { enable: false } })
-    updateTrayIconImmediate(sysProxyOn, false)
-    refreshTray()
-  }
 
   const run = async (action: () => Promise<void>): Promise<void> => {
     if (busy) return
@@ -111,34 +137,70 @@ const CcHome: React.FC = () => {
     try {
       await action()
     } catch (e) {
-      toast.error(String(e))
+      toast.error(errorText(e))
     } finally {
       setBusy(false)
+      mutateAppConfig()
+      mutateControledMihomoConfig()
       mutateProfileConfig()
+      window.electron.ipcRenderer.send('updateFloatingWindow')
+      window.electron.ipcRenderer.send('updateTrayMenu')
     }
   }
 
-  // 只保留刚导入的这一条线路，然后连上
-  const importProfile = async (item: Partial<IProfileItem>): Promise<void> => {
-    const before = new Set((await getProfileConfig(true)).items.map((i) => i.id))
-    await addProfileItem(item)
-    const config = await getProfileConfig(true)
-    const added =
-      config.items.find((i) => !before.has(i.id)) ??
-      config.items.find((i) => item.url && i.url === item.url)
-    if (!added) throw new Error('导入失败，请检查链接是否正确')
-    if (config.current !== added.id) await changeCurrentProfile(added.id)
-    for (const old of config.items) {
-      if (old.id !== added.id) await removeProfileItem(old.id)
+  const connectNow = (): Promise<void> =>
+    run(async () => {
+      if (!(await connect())) toast.warning('已连上，但虚拟网卡没有打开，部分软件可能不走代理')
+    })
+
+  const turnOnTun = async (): Promise<void> => {
+    if (!(await enableTun())) {
+      // Windows 会先弹窗重启成管理员，其他系统是没拿到权限
+      if (platform !== 'win32') throw new Error('没有拿到权限，虚拟网卡没有打开')
+      return
     }
-    await connect()
+    await ensureCoreRunning()
+    updateTrayIconImmediate(sysProxyOn, true)
+  }
+
+  const turnOffTun = async (): Promise<void> => {
+    await patchControledMihomoConfig({ tun: { enable: false } })
+    updateTrayIconImmediate(sysProxyOn, false)
+  }
+
+  // 新线路连上之后才删除旧线路；连不上就恢复原来的线路
+  const importProfile = async (item: Partial<IProfileItem>): Promise<void> => {
+    const previous = await getProfileConfig(true)
+    const before = new Set(previous.items.map((i) => i.id))
+    let addedId: string
+    let tun: boolean
+    try {
+      await addProfileItem(item)
+      const config = await getProfileConfig(true)
+      const added =
+        config.items.find((i) => !before.has(i.id)) ??
+        config.items.find((i) => item.url && i.url === item.url)
+      if (!added) throw new Error('没有读到线路，请检查链接是否正确')
+      addedId = added.id
+      if (config.current !== added.id) await changeCurrentProfile(added.id)
+      await ensureCoreRunning()
+      tun = await connect()
+    } catch (e) {
+      await restoreProfiles(previous)
+      const kept = previous.items.length > 0 ? '，原来的线路没有变' : ''
+      throw new Error(`导入失败${kept}：${errorText(e)}`)
+    }
+    for (const old of (await getProfileConfig(true)).items) {
+      if (old.id !== addedId) await removeProfileItem(old.id).catch(() => {})
+    }
     try {
       if (!(await checkAutoRun())) await enableAutoRun()
     } catch {
       // 开机自启失败不影响使用
     }
     setUrl('')
-    toast.success('导入成功，已经连上了')
+    if (tun) toast.success('导入成功，已经连上了')
+    else toast.warning('导入成功，已连上，但虚拟网卡没有打开，部分软件可能不走代理')
   }
 
   const importLink = (): Promise<void> =>
@@ -188,7 +250,7 @@ const CcHome: React.FC = () => {
               variant={connected ? 'flat' : 'solid'}
               isLoading={busy}
               isDisabled={!current}
-              onPress={() => run(connected ? disconnect : connect)}
+              onPress={() => (connected ? run(disconnect) : connectNow())}
             >
               {connected ? '断开连接' : '一键连接'}
             </Button>
