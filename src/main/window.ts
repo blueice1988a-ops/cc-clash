@@ -19,7 +19,7 @@ interface WindowState {
 }
 
 // 内存态，最大化期间保留上次普通尺寸（#1954）。
-let windowState: WindowState = { width: 800, height: 600 }
+let windowState: WindowState = { width: 800, height: 720 }
 
 function windowStateFile(): string {
   return join(dataDir(), 'window-state.json')
@@ -49,7 +49,7 @@ function loadWindowState(): WindowState {
   } catch {
     // 缺失/损坏，回退默认
   }
-  return { width: 800, height: 600 }
+  return { width: 800, height: 720 }
 }
 
 function isNormalWindow(window: BrowserWindow): boolean {

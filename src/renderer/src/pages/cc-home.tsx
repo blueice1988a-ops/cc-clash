@@ -92,6 +92,19 @@ const CcHome: React.FC = () => {
     refreshTray()
   }
 
+  const turnOnTun = async (): Promise<void> => {
+    const tun = await enableTun()
+    if (!tun && platform !== 'win32') throw new Error('没有拿到权限，虚拟网卡没有打开')
+    updateTrayIconImmediate(sysProxyOn, tun)
+    refreshTray()
+  }
+
+  const turnOffTun = async (): Promise<void> => {
+    await patchControledMihomoConfig({ tun: { enable: false } })
+    updateTrayIconImmediate(sysProxyOn, false)
+    refreshTray()
+  }
+
   const run = async (action: () => Promise<void>): Promise<void> => {
     if (busy) return
     setBusy(true)
@@ -148,11 +161,11 @@ const CcHome: React.FC = () => {
     <div className="h-screen w-full flex flex-col bg-background">
       <div className="app-drag h-12 shrink-0" />
       <div className="flex-1 overflow-y-auto flex flex-col items-center px-8 pb-10">
-        <img src={ccIcon} alt="" className="h-20 w-20 mt-4" />
-        <h1 className="text-2xl font-bold mt-3">Cc clash</h1>
+        <img src={ccIcon} alt="" className="h-16 w-16 shrink-0" />
+        <h1 className="text-2xl font-bold mt-2">Cc clash</h1>
 
-        <Card className="w-full max-w-md mt-8">
-          <CardBody className="flex flex-row items-center justify-between gap-4 p-5">
+        <Card className="w-full max-w-md mt-6 shrink-0">
+          <CardBody className="flex flex-col gap-4 p-5">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span
@@ -168,22 +181,32 @@ const CcHome: React.FC = () => {
                   {used !== undefined && ` · 本月已用 ${calcTraffic(used)}`}
                 </p>
               )}
-              {connected && !tunOn && (
-                <p className="text-tiny text-warning mt-1">
-                  虚拟网卡没有打开，部分软件可能不走代理
-                </p>
-              )}
             </div>
-            <Switch
+            <Button
               size="lg"
-              isSelected={connected}
-              isDisabled={!current || busy}
-              onValueChange={(on) => run(on ? connect : disconnect)}
-            />
+              color={connected ? 'default' : 'primary'}
+              variant={connected ? 'flat' : 'solid'}
+              isLoading={busy}
+              isDisabled={!current}
+              onPress={() => run(connected ? disconnect : connect)}
+            >
+              {connected ? '断开连接' : '一键连接'}
+            </Button>
+            <div className="flex items-center justify-between gap-4 border-t border-default-200 pt-4">
+              <div>
+                <p className="font-semibold">虚拟网卡</p>
+                <p className="text-tiny text-default-500">打开后电脑上所有软件都走代理</p>
+              </div>
+              <Switch
+                isSelected={tunOn}
+                isDisabled={!current || busy}
+                onValueChange={(on) => run(on ? turnOnTun : turnOffTun)}
+              />
+            </div>
           </CardBody>
         </Card>
 
-        <Card className="w-full max-w-md mt-4">
+        <Card className="w-full max-w-md mt-4 shrink-0">
           <CardBody className="flex flex-col gap-3 p-5">
             <p className="font-semibold">{current ? '更换线路' : '导入线路'}</p>
             <Input
